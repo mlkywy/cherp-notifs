@@ -1,8 +1,8 @@
 const axios = require("axios");
 const FormData = require("form-data");
-const { createAndSendEmail } = require("./nodemailer");
-
 require("dotenv").config();
+
+const { serializeCookies, createAndSendEmail } = require("./helpers");
 const { CHERPUSER, CHERPPASS } = process.env;
 
 let username = CHERPUSER;
@@ -12,7 +12,7 @@ let cherpsession;
 let cherpusername;
 
 const pollInterval = 60000; // 60 seconds
-const maxChats = 100; // Maximum number of chats to store
+const maxChats = 100;
 let chats = []; // Keep track of the most recent chats
 
 function pollForUpdates() {
@@ -24,6 +24,12 @@ function pollForUpdates() {
     })
     .then((response) => {
       console.log("GET https://cherp.chat/api/chat/list/unread", response.data);
+
+      if (response.data.status === "failure") {
+        // Re-login and start the next long poll after the current one completes
+        loginAndPoll();
+        return;
+      }
 
       // Extract the current unread chats
       const currentChats = response.data.chats;
@@ -42,10 +48,10 @@ function pollForUpdates() {
           (chat) =>
             `https://cherp.chat/chats/${chat.chatURL} (${chat.chatMessage.type})`
         );
-        const html = urls.join("\n");
+        const body = urls.join("\n");
 
         console.log("New unread chats:", newChats);
-        createAndSendEmail("New unread message from CheRP!", html);
+        createAndSendEmail("New unread CheRP chats!", body);
       }
 
       // Update the chats array with the most recent chats
@@ -61,48 +67,41 @@ function pollForUpdates() {
     });
 }
 
-axios
-  .get("https://cherp.chat/")
-  .then((response) => {
-    PHPSESSID = serializeCookies(response.headers["set-cookie"]);
+function loginAndPoll() {
+  axios
+    .get("https://cherp.chat/")
+    .then((response) => {
+      PHPSESSID = serializeCookies(response.headers["set-cookie"]);
 
-    return axios.get("https://cherp.chat/api/csrf", {
-      headers: { Cookie: PHPSESSID },
+      return axios.get("https://cherp.chat/api/csrf", {
+        headers: { Cookie: PHPSESSID },
+      });
+    })
+    .then((response) => {
+      console.log("GET /api/csrf", response.data);
+      const csrf = response.data.csrf;
+      const csrfname = response.data.csrfname;
+
+      const formData = new FormData();
+      formData.append("username", username);
+      formData.append("password", password);
+      formData.append("csrf", csrf);
+      formData.append("csrfname", csrfname);
+
+      return axios.post("https://cherp.chat/api/user/login", formData, {
+        headers: { Cookie: PHPSESSID },
+      });
+    })
+    .then((response) => {
+      console.log("POST /api/user/login", response.data);
+      cherpsession = serializeCookies(response.headers["set-cookie"][0]);
+      cherpusername = serializeCookies(response.headers["set-cookie"][1]);
+
+      pollForUpdates(); // Start polling the API
+    })
+    .catch((error) => {
+      console.error(error);
     });
-  })
-  .then((response) => {
-    console.log("GET /api/csrf", response.data);
-    const csrf = response.data.csrf;
-    const csrfname = response.data.csrfname;
-
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
-    formData.append("csrf", csrf);
-    formData.append("csrfname", csrfname);
-
-    return axios.post("https://cherp.chat/api/user/login", formData, {
-      headers: { Cookie: PHPSESSID },
-    });
-  })
-  .then((response) => {
-    console.log("POST /api/user/login", response.data);
-    cherpsession = serializeCookies(response.headers["set-cookie"][0]);
-    cherpusername = serializeCookies(response.headers["set-cookie"][1]);
-
-    pollForUpdates();
-  })
-  .catch((error) => {
-    console.error(error);
-  });
-
-function serializeCookies(cookies) {
-  if (cookies) {
-    if (Array.isArray(cookies)) {
-      return cookies.map((cookie) => cookie.split(";")[0]).join("; ");
-    } else if (typeof cookies === "string") {
-      return cookies.split(";")[0];
-    }
-  }
-  return "";
 }
+
+loginAndPoll();
