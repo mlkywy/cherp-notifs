@@ -1,18 +1,18 @@
 const nodemailer = require("nodemailer");
 require("dotenv").config();
-const { OUTLOOKUSER, OUTLOOKPASS, RECIPIENT } = process.env;
+const { EMAILUSER, EMAILPASS, RECIPIENT } = process.env;
 
 function createAndSendEmail(title, message) {
   const transporter = nodemailer.createTransport({
     service: "hotmail",
     auth: {
-      user: OUTLOOKUSER,
-      pass: OUTLOOKPASS,
+      user: EMAILUSER,
+      pass: EMAILPASS,
     },
   });
 
   const options = {
-    from: OUTLOOKUSER,
+    from: EMAILUSER,
     to: RECIPIENT,
     subject: title,
     text: message,
