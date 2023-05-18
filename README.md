@@ -2,7 +2,7 @@
 
 ## About
 
-A basic server-side script that polls the CheRP API (h) to retrieve unread roleplay chats and then sends the notifications to an email. This is just for fun/personal use.
+A basic server-side script that polls the CheRP API to retrieve unread roleplay chats and then sends the notifications to an email. This is just for fun/personal use!
 
 ### Built With
 
