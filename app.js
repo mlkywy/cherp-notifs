@@ -38,10 +38,14 @@ function pollForUpdates() {
 
       // Send notifications for new unread chats
       if (newChats.length > 0) {
-        const html = "";
+        const urls = newChats.map(
+          (chat) =>
+            `https://cherp.chat/chats/${chat.chatURL} (${chat.chatMessage.type})`
+        );
+        const html = urls.join("\n");
 
         console.log("New unread chats:", newChats);
-        createAndSendEmail("New unread message from CheRP!", "test");
+        createAndSendEmail("New unread message from CheRP!", html);
       }
 
       // Update the chats array with the most recent chats
