@@ -12,7 +12,8 @@ let cherpsession;
 let cherpusername;
 
 const pollInterval = 60000; // 60 seconds
-let dates = []; // Keep track of previously created chats
+const maxChats = 100; // Maximum number of chats to store
+let chats = []; // Keep track of the most recent chats
 
 function pollForUpdates() {
   axios
@@ -24,22 +25,27 @@ function pollForUpdates() {
     .then((response) => {
       console.log("GET https://cherp.chat/api/chat/list/unread", response.data);
 
-      // Extract the updated dates of the current unread chats
-      const current = response.data.chats.map((chat) => chat.updated);
+      // Extract the current unread chats
+      const currentChats = response.data.chats;
 
-      // Find new unread chats by comparing with previous updated dates
-      const unread = current.filter(
-        (updatedDate) => !dates.includes(updatedDate)
-      );
+      // Find new unread chats by comparing with previously fetched chats
+      const newChats = currentChats.filter((chat) => {
+        const foundChat = chats.find(
+          (c) => c.chatMessage.ID === chat.chatMessage.ID
+        );
+        return !foundChat;
+      });
 
       // Send notifications for new unread chats
-      if (unread.length > 0) {
-        console.log("New unread chat created dates:", unread);
-        // TODO: send notifications or handle new unread chats
-        createAndSendEmail("New unread message from CheRP!", "this is a test");
+      if (newChats.length > 0) {
+        const html = "";
+
+        console.log("New unread chats:", newChats);
+        createAndSendEmail("New unread message from CheRP!", "test");
       }
 
-      dates = current;
+      // Update the chats array with the most recent chats
+      chats = [...newChats, ...chats.slice(0, maxChats - newChats.length)];
 
       // Start the next long poll after the current one completes
       setTimeout(pollForUpdates, pollInterval);
